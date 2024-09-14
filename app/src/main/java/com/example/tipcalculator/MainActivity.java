@@ -1,14 +1,16 @@
 package com.example.tipcalculator;
 
-import com.example.tipcalculator.R;
 import android.os.Bundle;
 import android.view.KeyEvent;
 import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.TextView;
+import android.view.inputmethod.EditorInfo;
+import android.widget.Toast;
 
 import androidx.activity.EdgeToEdge;
+import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
@@ -17,7 +19,7 @@ import androidx.core.view.WindowInsetsCompat;
 import java.text.NumberFormat;
 
 public class MainActivity extends AppCompatActivity
-    implements TextView.OnEditorActionListener, View.OnClickListener {
+        implements TextView.OnEditorActionListener, View.OnClickListener {
 
     private String billAmountString = "";
     private float tipPercent = .15f;
@@ -53,45 +55,47 @@ public class MainActivity extends AppCompatActivity
         billAmountEditText.setOnEditorActionListener(this);
         percentDownButton.setOnClickListener(this);
         percentUpButton.setOnClickListener(this);
+
+        if (savedInstanceState != null) {
+            //get the bill amount
+            billAmountString = savedInstanceState.getString("billAmountString", "");
+            tipPercent = savedInstanceState.getFloat("tipPercent", 0.15f);
+        }
+
+        updateUI();
     }
 
-    public void calculateAndDisplay(){
-        //get the bill amount
-        billAmountString = billAmountEditText.getText().toString();
-        float billAmount;
-        if (billAmountString.equals("")){
-            billAmount = 0;
-        }
-        else{
-            billAmount = Float.parseFloat(billAmountString);
-        }
-        //calculate tip and total
-        float tipAmount = billAmount * tipPercent ;
-        float totalAmount = billAmount + tipAmount ;
+    @Override
+    protected void onSaveInstanceState(@NonNull Bundle outState) {
+        super.onSaveInstanceState(outState);
 
-        //display the results with formatting
-        NumberFormat currency = NumberFormat.getCurrencyInstance();
-        tipTextView.setText(currency.format(tipAmount));
-        totalTextView.setText(currency.format(totalAmount));
-
-        NumberFormat percent = NumberFormat.getPercentInstance();
-        percentTextView.setText(percent.format(tipPercent));
-
+        outState.putString("billAmountString", billAmountString);
+        outState.putFloat("tipPercent", tipPercent);
     }
+
+    @Override
+    protected void onRestoreInstanceState(@NonNull Bundle savedInstanceState) {
+        super.onRestoreInstanceState(savedInstanceState);
+
+        if (savedInstanceState != null) {
+            billAmountString = savedInstanceState.getString("billAmountString", "");
+            tipPercent = savedInstanceState.getFloat("tipPercent", 0.15f);
+
+            billAmountEditText.setText(billAmountString);
+            calculateAndDisplay();
+        }
+    }
+
     @Override
     public void onClick(View v) {
-//        switch (v.getId()){
-//            case R.id.percentDownButton:
-//                tipPercent = tipPercent - 0.01f ;
-//                calculateAndDisplay();
-//                break;
-//            case R.id.percentUpButton:
-//                tipPercent = tipPercent + 0.01f ;
-//                calculateAndDisplay();
-//                break;
+        int id = v.getId();
+//        if (id == R.id.percentDownButton) {
+//            tipPercent = Math.max(0, tipPercent - 0.01f);
+//            updateUI();
+//        } else if (id == R.id.percentUpButton) {
+//            tipPercent += 0.01f;
+//            updateUI();
 //        }
-
-
         if (v.getId() == R.id.percentDownButton) {
             // Reduce the tip percentage with a minimum limit of 0
             if (tipPercent > 0.01f) {
@@ -100,6 +104,7 @@ public class MainActivity extends AppCompatActivity
                 tipPercent = 0.0f;
             }
             calculateAndDisplay();
+            updateUI();
         } else if (v.getId() == R.id.percentUpButton) {
             // Increase the tip percentage with a maximum limit of 100%
             if (tipPercent < 1.0f) {
@@ -108,12 +113,43 @@ public class MainActivity extends AppCompatActivity
                 tipPercent = 1.0f;
             }
             calculateAndDisplay();
+            updateUI();
         }
     }
 
     @Override
     public boolean onEditorAction(TextView v, int actionId, KeyEvent event) {
-        calculateAndDisplay();
+        if (actionId == EditorInfo.IME_ACTION_DONE || actionId == EditorInfo.IME_ACTION_UNSPECIFIED) {
+            calculateAndDisplay();
+            return true;
+        }
         return false;
+    }
+
+    private void calculateAndDisplay() {
+        billAmountString = billAmountEditText.getText().toString();
+        float billAmount = 0;
+        try {
+            if (!billAmountString.isEmpty()) {
+                billAmount = Float.parseFloat(billAmountString);
+            }
+        } catch (NumberFormatException e) {
+            Toast.makeText(this, "Invalid input! Please enter a valid number.", Toast.LENGTH_SHORT).show();
+            billAmountEditText.setText("");
+            return;
+        }
+
+        float tipAmount = billAmount * tipPercent;
+        float totalAmount = billAmount + tipAmount;
+
+        NumberFormat currency = NumberFormat.getCurrencyInstance();
+        tipTextView.setText(currency.format(tipAmount));
+        totalTextView.setText(currency.format(totalAmount));
+    }
+
+    private void updateUI() {
+        NumberFormat percent = NumberFormat.getPercentInstance();
+        percentTextView.setText(percent.format(tipPercent));
+        calculateAndDisplay();
     }
 }
